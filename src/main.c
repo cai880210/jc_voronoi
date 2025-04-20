@@ -331,6 +331,7 @@ int main(int argc, const char** argv)
     const char* inputfile = 0;
     const char* clipfile = 0; // a file with clipping points
     const char* outputfile = "example.png";
+    int distance = 10;
 
     if( argc == 1 )
     {
@@ -486,7 +487,7 @@ int main(int argc, const char** argv)
     {
         jcv_diagram diagram;
         memset(&diagram, 0, sizeof(jcv_diagram));
-        jcv_diagram_generate(count, (const jcv_point*)points, rect, clipper, &diagram);
+        jcv_diagram_generate(count, (const jcv_point*)points, rect, clipper, &diagram, (float)distance);
 
         relax_points(&diagram, points);
 
@@ -508,7 +509,7 @@ int main(int argc, const char** argv)
     {
         printf("Generating...\n");
         memset(&diagram, 0, sizeof(jcv_diagram));
-        jcv_diagram_generate(count, (const jcv_point*)points, rect, clipper, &diagram);
+        jcv_diagram_generate(count, (const jcv_point*)points, rect, clipper, &diagram, (float)distance);
         printf("Done.\n");
 
         printf("Rendering...\n");
