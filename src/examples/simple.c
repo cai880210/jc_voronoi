@@ -22,14 +22,15 @@
 //#define JCV_FLT_MAX 1.7976931348623157E+308
 #include "jc_voronoi.h"
 
-#define NPOINT 10
+#define NPOINT 20
 
 int main(int argc, char** argv) {
   (void)argc;
   (void)argv;
 
   int i;
-  jcv_rect bounding_box = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+  int distance = 0.2;
+  //jcv_rect bounding_box = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
   jcv_diagram diagram;
   jcv_point points[NPOINT];
   const jcv_site* sites;
@@ -38,9 +39,13 @@ int main(int argc, char** argv) {
   memset(&diagram, 0, sizeof(jcv_diagram));
 
   srand(0);
+  jcv_rect rect;
+  rect.min.x = rect.min.y = JCV_FLT_MAX;
+  rect.max.x = rect.max.y = -JCV_FLT_MAX;
   for (i=0; i<NPOINT; i++) {
     points[i].x = ((float)rand()/(1.0f + (float)RAND_MAX));
     points[i].y = ((float)rand()/(1.0f + (float)RAND_MAX));
+    jcv_rect_union(&rect, &points[i]);
   }
 
   printf("# Seed sites\n");
@@ -48,12 +53,12 @@ int main(int argc, char** argv) {
     printf("%f %f\n", (double)points[i].x, (double)points[i].y);
   }
 
-  jcv_diagram_generate(NPOINT, (const jcv_point *)points, &bounding_box, 0, &diagram);
+  jcv_diagram_generate(NPOINT, (const jcv_point *)points, &rect, 0, &diagram, distance);
 
   printf("# Edges\n");
   sites = jcv_diagram_get_sites(&diagram);
-  for (i=0; i<diagram.numsites; i++) {
 
+  for (i=0; i<diagram.numsites; i++) {
     graph_edge = sites[i].edges;
     while (graph_edge) {
       // This approach will potentially print shared edges twice
