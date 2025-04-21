@@ -79,7 +79,7 @@ typedef void (*jcv_clip_fillgap_fn)(const jcv_clipper* clipper, jcv_context_inte
  * All points will be culled against the bounding rect, and all edges will be clipped against it.
  */
 extern void jcv_diagram_generate( int num_points, const jcv_point* points, const jcv_rect* rect, const jcv_clipper* clipper, jcv_diagram* diagram, jcv_real distance);
-extern int jcv_cluster_test(jcv_context_internal* internal, const jcv_site* site, jcv_real distance);
+extern int jcv_cluster_test(jcv_context_internal* internal, jcv_site* site, jcv_real distance);
 typedef void* (*FJCVAllocFn)(void* userctx, size_t size);
 typedef void (*FJCVFreeFn)(void* userctx, void* p);
 
@@ -136,6 +136,7 @@ struct jcv_site_
     jcv_point       p;
     int             index;  // Index into the original list of points
     int             count;
+    int             parent;
     jcv_graphedge*  edges;  // The half edges owned by the cell
 };
 
@@ -1309,10 +1310,11 @@ static void jcv_fillgaps(jcv_diagram* diagram)
     jcv_context_internal* internal = diagram->internal;
     if (!internal->clipper.fill_fn)
         return;
+    jcv_site* sites = jcv_diagram_get_sites(&diagram);
 
-    for( int i = 0; i < internal->numsites; ++i )
+    for( int i = 0; i < diagram->numsites; ++i )
     {
-        jcv_site* site = &internal->sites[i];
+        jcv_site* site = &sites[i];
         internal->clipper.fill_fn(&internal->clipper, internal, site);
     }
 }
@@ -1510,40 +1512,42 @@ static jcv_context_internal* jcv_alloc_internal(int num_points, void* userallocc
 
     return internal;
 }
-int jcv_cluster_test(jcv_context_internal* internal, const jcv_site* site, jcv_real distance)
+int jcv_cluster_test(jcv_context_internal* internal, jcv_site* site, jcv_real distance)
 {
-    jcv_halfedge* left_he   = jcv_get_edge_above_x(internal, &site->p);
+    jcv_halfedge* left_he = jcv_get_edge_above_x(internal, &site->p);
     if( !left_he )
-    {
         return 0;
-    }
-
-    jcv_site* he_left_site = jcv_halfedge_leftsite(left_he);
     jcv_site* he_right_site = jcv_halfedge_rightsite(left_he);
-    jcv_real he_left_dist = jcv_point_dist(&site->p,&he_left_site->p);
+    if( !he_right_site )
+        return 0;
     jcv_real he_right_dist = jcv_point_dist(&site->p,&he_right_site->p);
-
-    if(he_left_dist < distance){
-        he_left_site->count++;
-        return 1;
-    }else if(he_right_dist < distance){
+    if((JCV_REAL_TYPE)he_right_dist < (JCV_REAL_TYPE)distance){
         he_right_site->count++;
+        site->parent = he_right_site->p.id;
+        return 1;
+    }
+    jcv_site* he_left_site = jcv_halfedge_leftsite(left_he);
+    if( !he_left_site )
+        return 0;
+    jcv_real he_left_dist = jcv_point_dist(&site->p,&he_left_site->p);
+    if((JCV_REAL_TYPE)he_left_dist < (JCV_REAL_TYPE)distance){
+        he_left_site->count++;
+        site->parent = he_left_site->p.id;
         return 1;
     }
     jcv_halfedge* right_he  = left_he->right;
     if( !right_he )
-    {
         return 0;
-    }
-
     jcv_site* right_he_site = jcv_halfedge_rightsite(right_he);
-    jcv_real right_he_dist = jcv_point_dist(&site->p,&right_he_site->p);
-    if(right_he_dist < distance){
-        right_he_site->count++;
-        return 1;
-    }else{
+    if( !right_he_site )
         return 0;
+    jcv_real right_he_dist = jcv_point_dist(&site->p,&right_he_site->p);
+    if((JCV_REAL_TYPE)right_he_dist < (JCV_REAL_TYPE)distance){
+        right_he_site->count++;
+        site->parent = right_he_site->p.id;
+        return 1;
     }
+    return 0;
 }
 
 void jcv_diagram_generate_useralloc(int num_points, const jcv_point* points, const jcv_rect* rect, const jcv_clipper* clipper, void* userallocctx, FJCVAllocFn allocfn, FJCVFreeFn freefn, jcv_diagram* d, jcv_real distance)
@@ -1574,6 +1578,7 @@ void jcv_diagram_generate_useralloc(int num_points, const jcv_point* points, con
         sites[i].p        = points[i];
         sites[i].edges    = 0;
         sites[i].count    = 1;
+        sites[i].parent    = 0;
         sites[i].index    = i;
     }
 
@@ -1629,7 +1634,7 @@ void jcv_diagram_generate_useralloc(int num_points, const jcv_point* points, con
     int finished = 0;
     while( !finished )
     {
-        if(site != 0&&!jcv_pq_empty(pq)&& jcv_cluster_test(internal, site, distance)){
+        if(site != 0 && !jcv_pq_empty(pq) && jcv_cluster_test(internal, site, distance)){
             site = jcv_nextsite(internal);
             continue;
         }
@@ -1661,7 +1666,7 @@ void jcv_diagram_generate_useralloc(int num_points, const jcv_point* points, con
         jcv_finishline(internal, he->edge);
     }
 
-    jcv_fillgaps(d);
+    //jcv_fillgaps(d);
 }
 
 #endif // JC_VORONOI_IMPLEMENTATION
