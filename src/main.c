@@ -153,6 +153,7 @@ static void Usage()
     printf("\t-o <outputfile.png>\n");
     printf("\t-w <width>\n");
     printf("\t-h <height>\n");
+    printf("\t-d <distance>\n");
 }
 
 static int debug_skip_point(const jcv_point* pt)
@@ -395,6 +396,16 @@ int main(int argc, const char** argv)
         {
             if( i+1 < argc )
                 numrelaxations = (int)atol(argv[i+1]);
+            else
+            {
+                Usage();
+                return 1;
+            }
+        }
+        else if(strcmp(argv[i], "-d") == 0)
+        {
+            if( i+1 < argc )
+                distance = (int)atol(argv[i+1]);
             else
             {
                 Usage();
